@@ -409,6 +409,134 @@ firebase firestore:delete stats --recursive --project homework-7eefc
   - Promise.all로 모든 제출물 동시 승인
   - 성공 토스트 메시지 표시
 - UI 버튼 추가
-  - 제출물 2개 이상일 때만 표시
+  - 제출물 1개 이상일 때 표시 (`>= 1`로 수정)
   - 듀오링고 스타일 3D 버튼 (초록색)
   - "✓ 3개 모두 승인하기" 형식
+
+### 작업 17: 카메라 화면 깜빡임 문제 수정
+
+#### 문제
+- 카메라 화면에서 무한 깜빡임 발생
+- 사진 촬영 시 화면이 계속 리렌더링됨
+
+#### 원인
+- `useEffect`에서 `stream` state를 의존성 배열에 포함
+- stream 변경 → state 업데이트 → 재렌더링 → stream 변경 무한 루프
+
+#### 해결
+**child/camera/page.tsx 수정**
+- `stream` state → `streamRef` ref로 변경
+- `cameraReady` state 추가 (UI 업데이트용)
+- useEffect 의존성 배열에서 `startCamera`, `stopCamera` 제거
+
+### 작업 18: Zustand hydration 문제 수정
+
+#### 문제
+- 화면 전환 시 자꾸 select 화면으로 이동됨
+- 새로고침/화면 전환 시 로그인 상태 유실
+
+#### 원인
+- Zustand persist는 localStorage에서 비동기로 데이터 로드
+- 로드 완료 전 `currentUser`가 null → redirect 발생
+
+#### 해결
+**userStore.ts 수정**
+- `hasHydrated` state 추가
+- `setHasHydrated` action 추가
+- `onRehydrateStorage` 콜백 설정
+
+**모든 페이지 수정**
+- `hasHydrated` 체크 후에만 redirect 실행
+- 수정된 파일:
+  - `child/page.tsx`
+  - `child/camera/page.tsx`
+  - `child/success/page.tsx`
+  - `child/calendar/page.tsx`
+  - `parent/page.tsx`
+  - `parent/review/page.tsx`
+  - `parent/assignments/page.tsx`
+
+### 작업 19: 브라우저 캐시 문제 수정
+
+#### 문제
+- 일반 브라우저에서 화면 전환 안됨
+- 시크릿 모드에서는 정상 작동
+
+#### 원인
+- 이전 버전 JS가 브라우저에 캐시됨
+
+#### 해결
+**firebase.json 수정**
+- HTML, JS 파일에 no-cache 헤더 추가
+```json
+"headers": [
+  { "source": "**/*.html", "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }] },
+  { "source": "**/*.js", "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }] }
+]
+```
+
+### 작업 20: 부모 PIN 인증 추가
+
+#### 요청
+- 부모 로그인 시 4자리 비밀번호 입력
+- 비밀번호: 7824
+
+#### 구현
+**select/page.tsx 수정**
+- PIN 입력 모달 추가
+- 숫자 키패드 UI (듀오링고 스타일)
+- 틀리면 shake 애니메이션 + 에러 토스트
+- 맞으면 parent 화면으로 이동
+
+**.env.local 수정**
+- `NEXT_PUBLIC_PARENT_PIN=7824` 추가
+
+### 작업 21: 진행률 라벨 변경
+
+#### 요청
+- "이번 주 진행률" → "오늘 진행률"
+
+#### 수정
+**child/page.tsx**
+- ProgressBar label prop 변경
+
+### 작업 22: 성능 최적화
+
+#### 적용한 최적화
+
+**1. Firebase Lite SDK 전환**
+- `firebase.ts`: `firebase/firestore` → `firebase/firestore/lite`
+- `firestore.ts`: lite 버전 import
+- 번들 크기 약 53KB 감소
+
+**2. N+1 쿼리 최적화**
+- `getPendingSubmissionsWithAssignments()` 함수 추가
+- 제출물 + 미션 정보를 한 번에 조회
+- 기존: N개 제출물 × N개 쿼리 → 개선: 2개 쿼리
+
+**3. CSS 애니메이션 추가**
+- `tailwind.config.js`에 fade-in, slide-up, scale-in 애니메이션 추가
+
+### 작업 23: 최종 커밋
+
+#### 커밋 정보
+- 해시: `88c43ee`
+- 메시지: "최종수정본: 송가네 미션 앱 v1.0"
+- 47개 파일 변경 (15,860줄 추가)
+
+#### 주요 기능
+- 가족 선택 화면 및 역할별 라우팅
+- 자녀: 미션 목록, 카메라 촬영, 제출, 달력, 스트릭
+- 부모: 대시보드, 제출물 확인/승인/반려, 미션 관리
+- 부모 PIN 인증 (4자리)
+- 일괄 승인 기능
+- 듀오링고 스타일 UI
+
+#### 최적화
+- Firebase Lite SDK (번들 53KB 감소)
+- N+1 쿼리 최적화
+- Zustand hydration 처리
+- 캐시 헤더 설정
+
+#### 배포
+- URL: https://homework-7eefc.web.app
