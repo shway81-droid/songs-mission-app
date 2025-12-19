@@ -23,3 +23,10 @@ npm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Firebase
+.firebase/
+
+# Test
+test-results/
+playwright-report/

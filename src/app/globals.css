@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Pretendard 폰트 */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+:root {
+  --primary: #58CC02;
+  --primary-dark: #4CAD02;
+  --secondary: #1CB0F6;
+  --secondary-dark: #1899D6;
+  --streak: #FF9600;
+  --streak-dark: #E08600;
+  --background: #235390;
+  --background-dark: #1A3D6D;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* 모바일 최적화 */
+@media (max-width: 768px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+/* 듀오링고 스타일 3D 버튼 */
+@layer components {
+  .btn-3d {
+    @apply relative font-bold rounded-2xl transition-all duration-100;
+    transform: translateY(0);
+  }
+
+  .btn-3d:active {
+    transform: translateY(4px);
+    box-shadow: none !important;
+  }
+
+  .btn-3d-primary {
+    @apply bg-primary text-white;
+    box-shadow: 0 4px 0 0 var(--primary-dark);
+  }
+
+  .btn-3d-secondary {
+    @apply bg-secondary text-white;
+    box-shadow: 0 4px 0 0 var(--secondary-dark);
+  }
+
+  .btn-3d-streak {
+    @apply bg-streak text-white;
+    box-shadow: 0 4px 0 0 var(--streak-dark);
+  }
+
+  .btn-3d-outline {
+    @apply bg-white border-2 border-gray-200 text-gray-500;
+    box-shadow: 0 4px 0 0 #E5E5E5;
+  }
+}
+
+/* 카드 스타일 */
+@layer components {
+  .card-duo {
+    @apply bg-white rounded-2xl p-4 border-2 border-gray-200;
+    box-shadow: 0 2px 0 0 #E5E5E5;
+  }
+}
+
+/* 스크롤바 숨기기 (모바일) */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Safe area padding for iOS */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
