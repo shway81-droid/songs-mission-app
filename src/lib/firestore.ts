@@ -185,16 +185,24 @@ export async function submitAssignment(
   await uploadBytes(storageRef, photoFile);
   const photoUrl = await getDownloadURL(storageRef);
 
-  // 2. Firestore에 제출 기록 저장
+  // 2. 미션 정보 가져오기 (젬 보상)
+  const assignment = await getAssignmentById(assignmentId);
+  const gemsToAdd = assignment?.gems || 10;
+
+  // 3. Firestore에 제출 기록 저장 (상태는 pending, 젬은 즉시 적립)
   await setDoc(doc(db, 'submissions', submissionId), {
     assignmentId,
     childId,
     photoUrl,
-    status: 'pending',
+    status: 'pending', // 부모 확인 대기 (선택사항)
+    gemsEarned: gemsToAdd, // 획득한 젬 기록
     submittedAt: Timestamp.now(),
   });
 
-  // 3. 스트릭 업데이트 (하루에 한 번만)
+  // 4. 젬 적립 (제출 즉시)
+  await addGems(childId, gemsToAdd);
+
+  // 5. 스트릭 업데이트 (하루에 한 번만)
   const stats = await getChildStats(childId);
   const todayDate = new Date();
   todayDate.setHours(0, 0, 0, 0);
@@ -221,12 +229,24 @@ export async function rejectSubmission(
   });
 }
 
-// 제출물 승인
+// 제출물 승인 (젬은 제출 시 이미 적립됨)
 export async function approveSubmission(
   submissionId: string,
   reviewerId: string
 ): Promise<void> {
-  await updateDoc(doc(db, 'submissions', submissionId), {
+  // 1. 제출물 정보 가져오기
+  const submissionRef = doc(db, 'submissions', submissionId);
+  const submissionSnap = await getDoc(submissionRef);
+
+  if (!submissionSnap.exists()) return;
+
+  const submission = submissionSnap.data();
+
+  // 이미 승인된 경우 중복 처리 방지
+  if (submission.status === 'approved') return;
+
+  // 2. 승인 처리 (젬은 제출 시 이미 적립되었으므로 상태만 변경)
+  await updateDoc(submissionRef, {
     status: 'approved',
     reviewedAt: Timestamp.now(),
     reviewedBy: reviewerId,
@@ -296,6 +316,7 @@ export async function getChildStats(childId: string): Promise<ChildStats> {
       currentStreak: 0,
       longestStreak: 0,
       totalSubmissions: 0,
+      totalGems: 0,
     };
     await setDoc(docRef, initialStats);
     return initialStats;
@@ -303,6 +324,7 @@ export async function getChildStats(childId: string): Promise<ChildStats> {
 
   return {
     ...docSnap.data(),
+    totalGems: docSnap.data().totalGems ?? 0, // 기존 데이터 호환
     lastSubmissionDate: docSnap.data().lastSubmissionDate?.toDate(),
   } as ChildStats;
 }
@@ -401,4 +423,72 @@ export async function getWeeklySubmissionCount(childId: string): Promise<{
     submitted: uniqueDates.size,
     total: 7,
   };
+}
+
+// ============================================================
+// 젬 관리 (Gems)
+// ============================================================
+
+// 젬 추가
+export async function addGems(childId: string, amount: number): Promise<number> {
+  const stats = await getChildStats(childId);
+  const newTotal = Math.max(0, stats.totalGems + amount);
+
+  await updateDoc(doc(db, 'stats', childId), {
+    totalGems: newTotal,
+  });
+
+  return newTotal;
+}
+
+// 젬 차감
+export async function subtractGems(childId: string, amount: number): Promise<number> {
+  return addGems(childId, -amount);
+}
+
+// 젬 직접 설정
+export async function setGems(childId: string, amount: number): Promise<void> {
+  await updateDoc(doc(db, 'stats', childId), {
+    totalGems: Math.max(0, amount),
+  });
+}
+
+// ============================================================
+// 제출 기록 + 미션 정보 (부모 상세 페이지용)
+// ============================================================
+
+// 자녀의 제출 기록 + 미션 정보 함께 가져오기
+export async function getSubmissionsWithAssignments(
+  childId: string,
+  year: number,
+  month: number
+): Promise<(Submission & { assignment: Assignment | null })[]> {
+  const submissions = await getSubmissionsByMonth(childId, year, month);
+  if (submissions.length === 0) return [];
+
+  // 중복 제거된 assignmentId 목록
+  const assignmentIds = Array.from(
+    new Set(submissions.map((s) => s.assignmentId).filter(Boolean))
+  ) as string[];
+
+  // 모든 미션을 한 번에 가져오기
+  const assignments = await Promise.all(
+    assignmentIds.map((id) => getAssignmentById(id))
+  );
+
+  // Map으로 변환
+  const assignmentMap = new Map<string, Assignment | null>();
+  assignmentIds.forEach((id, index) => {
+    assignmentMap.set(id, assignments[index]);
+  });
+
+  // 제출물에 미션 정보 병합 (최신순 정렬)
+  return submissions
+    .map((submission) => ({
+      ...submission,
+      assignment: submission.assignmentId
+        ? assignmentMap.get(submission.assignmentId) || null
+        : null,
+    }))
+    .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime());
 }

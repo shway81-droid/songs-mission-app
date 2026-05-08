@@ -43,6 +43,7 @@ export interface ChildStats {
   currentStreak: number;
   longestStreak: number;
   totalSubmissions: number;
+  totalGems: number; // 보유 젬
   lastSubmissionDate?: Date;
 }
 

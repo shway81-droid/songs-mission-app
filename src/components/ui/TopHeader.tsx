@@ -2,6 +2,7 @@
 
 interface TopHeaderProps {
   streak?: number;
+  gems?: number;
   showStreak?: boolean;
   title?: string;
   onBack?: () => void;
@@ -9,6 +10,7 @@ interface TopHeaderProps {
 
 export default function TopHeader({
   streak = 0,
+  gems = 0,
   showStreak = true,
   title,
   onBack,
@@ -37,7 +39,7 @@ export default function TopHeader({
       {showStreak && !title && (
         <div className="flex items-center gap-1.5 text-secondary font-extrabold text-[17px]">
           <span className="text-[22px]">💎</span>
-          {streak * 10}
+          {gems}
         </div>
       )}
     </div>

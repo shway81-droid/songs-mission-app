@@ -2,13 +2,26 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // 제출 사진 - 누구나 읽기/쓰기 가능 (가족 전용 앱)
-    match /submissions/{allPaths=**} {
-      allow read, write: if request.time < timestamp.date(2026, 1, 18);
 
-      // 파일 크기 제한: 5MB
-      allow write: if request.resource.size < 5 * 1024 * 1024
+    // 제출 사진 폴더
+    match /submissions/{childId}/{fileName} {
+      // 허용된 자녀 ID만 접근 가능
+      function isValidChildId() {
+        return childId in ['son', 'daughter'];
+      }
+
+      // 읽기: 유효한 자녀 폴더만
+      allow read: if isValidChildId();
+
+      // 쓰기: 유효한 자녀 + 이미지 파일 + 5MB 제한
+      allow write: if isValidChildId()
+                   && request.resource.size < 5 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
+    }
+
+    // 기타 모든 경로: 접근 불가
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }

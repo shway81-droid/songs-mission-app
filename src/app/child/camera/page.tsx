@@ -159,7 +159,8 @@ function CameraPageContent() {
       console.log(`이미지 압축 완료: ${formatFileSize(compressedFile.size)}`);
 
       await submitAssignment(currentUser.id, selectedAssignment.id, compressedFile);
-      router.push('/child/success');
+      const earnedGems = selectedAssignment.gems || 10;
+      router.push(`/child/success?gems=${earnedGems}`);
     } catch (error) {
       console.error('제출 실패:', error);
       toast.error('제출에 실패했어요. 다시 시도해주세요.');

@@ -1,16 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useUserStore } from '@/stores/userStore';
 import { DuoButton } from '@/components/ui';
 import { getChildStats } from '@/lib/firestore';
 
-export default function SuccessPage() {
+function SuccessContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { currentUser, isChild, hasHydrated } = useUserStore();
   const [streak, setStreak] = useState(1);
+
+  // URL에서 획득한 젬 수 가져오기
+  const earnedGems = parseInt(searchParams.get('gems') || '10', 10);
 
   useEffect(() => {
     // hydration 완료 전에는 아무것도 하지 않음
@@ -119,7 +123,7 @@ export default function SuccessPage() {
         className="bg-white/15 rounded-full py-3 px-6 flex items-center gap-2 mb-8"
       >
         <span className="text-2xl">💎</span>
-        <span className="text-white font-extrabold text-lg">+10 젬 획득!</span>
+        <span className="text-white font-extrabold text-lg">+{earnedGems} 젬 획득!</span>
       </motion.div>
 
       <motion.div
@@ -164,5 +168,19 @@ export default function SuccessPage() {
         </motion.div>
       ))}
     </div>
+  );
+}
+
+export default function SuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(180deg, #58CC02 0%, #78E100 100%)' }}>
+          <div className="text-6xl animate-bounce">🎉</div>
+        </div>
+      }
+    >
+      <SuccessContent />
+    </Suspense>
   );
 }

@@ -102,7 +102,7 @@ export default function ChildHomePage() {
 
   return (
     <div className="min-h-screen bg-background pb-6">
-      <TopHeader streak={streak} />
+      <TopHeader streak={streak} gems={stats?.totalGems || 0} />
 
       <div className="p-5">
         {/* 캐릭터 인사 */}

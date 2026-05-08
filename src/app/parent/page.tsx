@@ -11,6 +11,7 @@ import {
   getAllChildrenStats,
   getTodaySubmission,
   getPendingSubmissions,
+  getSubmissionsByMonth,
 } from '@/lib/firestore';
 import { CHILDREN, ChildStats, Submission, FAMILY_MEMBERS } from '@/types';
 
@@ -22,6 +23,8 @@ interface ChildStatus {
   submitted: boolean;
   status?: 'pending' | 'approved' | 'rejected';
   streak: number;
+  totalGems: number;
+  monthlySubmissions: number;
 }
 
 export default function ParentDashboardPage() {
@@ -45,10 +48,14 @@ export default function ParentDashboardPage() {
 
     const loadData = async () => {
       try {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+
         // 각 자녀의 오늘 제출 현황 가져오기
         const statuses: ChildStatus[] = await Promise.all(
           CHILDREN.map(async (child) => {
-            const [submission, stats] = await Promise.all([
+            const [submission, stats, monthlySubmissions] = await Promise.all([
               getTodaySubmission(child.id),
               getAllChildrenStats().then(
                 (allStats) =>
@@ -57,8 +64,10 @@ export default function ParentDashboardPage() {
                     currentStreak: 0,
                     longestStreak: 0,
                     totalSubmissions: 0,
+                    totalGems: 0,
                   }
               ),
+              getSubmissionsByMonth(child.id, currentYear, currentMonth),
             ]);
 
             return {
@@ -69,6 +78,8 @@ export default function ParentDashboardPage() {
               submitted: !!submission,
               status: submission?.status,
               streak: stats.currentStreak,
+              totalGems: stats.totalGems ?? 0,
+              monthlySubmissions: monthlySubmissions.length,
             };
           })
         );
@@ -119,47 +130,6 @@ export default function ParentDashboardPage() {
       </div>
 
       <div className="p-5">
-        {/* 오늘 현황 요약 */}
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="bg-white rounded-2xl p-5 mb-5"
-          style={{ boxShadow: '0 4px 0 rgba(0,0,0,0.1)' }}
-        >
-          <div className="text-base font-extrabold text-gray-500 mb-4">📊 오늘 제출 현황</div>
-
-          {/* 프로그레스 바 */}
-          <div className="mb-5">
-            <div className="flex justify-between mb-2">
-              <span className="text-sm font-bold text-gray-500">제출률</span>
-              <span className="text-sm font-extrabold text-primary">{submissionRate}%</span>
-            </div>
-            <div className="h-5 bg-gray-200 rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${submissionRate}%` }}
-                transition={{ duration: 0.5 }}
-                className="h-full rounded-full"
-                style={{ background: 'linear-gradient(90deg, #58CC02 0%, #78E100 100%)' }}
-              />
-            </div>
-          </div>
-
-          {/* 통계 숫자들 */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-green-50 rounded-xl p-3.5 text-center">
-              <div className="text-3xl font-extrabold text-primary">{submittedCount}</div>
-              <div className="text-xs text-primary font-semibold">제출 완료</div>
-            </div>
-            <div className="bg-red-50 rounded-xl p-3.5 text-center">
-              <div className="text-3xl font-extrabold text-error">
-                {totalCount - submittedCount}
-              </div>
-              <div className="text-xs text-error font-semibold">미제출</div>
-            </div>
-          </div>
-        </motion.div>
-
         {/* 자녀별 현황 */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
@@ -167,44 +137,73 @@ export default function ParentDashboardPage() {
           transition={{ delay: 0.1 }}
           className="mb-5"
         >
-          <div className="text-white font-extrabold text-base mb-3">👨‍👩‍👧‍👦 자녀별 현황</div>
+          <div className="text-white font-extrabold text-base mb-3">
+            👨‍👩‍👧‍👦 자녀별 현황
+            <span className="text-white/60 text-xs font-semibold ml-2">(탭하여 상세보기)</span>
+          </div>
           <div className="space-y-3">
             {childStatuses.map((child) => (
-              <div
+              <motion.div
                 key={child.id}
-                className="bg-white rounded-xl p-4 flex items-center justify-between"
-                style={{ boxShadow: '0 2px 0 rgba(0,0,0,0.1)' }}
+                onClick={() => router.push(`/parent/child/${child.id}`)}
+                className="bg-white rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
+                style={{ boxShadow: '0 4px 0 rgba(0,0,0,0.1)' }}
+                whileTap={{ scale: 0.98 }}
               >
-                <div className="flex items-center gap-3">
-                  <ProfileAvatar src={child.profileImage} alt={child.name} size="large" />
-                  <div>
-                    <div className="font-extrabold text-gray-500">{child.name}</div>
-                    <div className="text-xs text-gray-400 flex items-center gap-1">
-                      <span>🔥</span>
-                      {child.streak}일 연속
+                {/* 상단: 프로필 + 상태 */}
+                <div className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <ProfileAvatar src={child.profileImage} alt={child.name} size="large" />
+                    <div>
+                      <div className="font-extrabold text-gray-700">{child.name}</div>
+                      <div className="text-xs text-streak font-bold flex items-center gap-1">
+                        <span>🔥</span>
+                        {child.streak}일 연속
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`py-1.5 px-3 rounded-full text-xs font-bold ${
+                        child.submitted
+                          ? child.status === 'rejected'
+                            ? 'bg-red-100 text-error'
+                            : child.status === 'pending'
+                              ? 'bg-yellow-100 text-streak'
+                              : 'bg-green-100 text-primary'
+                          : 'bg-gray-100 text-gray-400'
+                      }`}
+                    >
+                      {child.submitted
+                        ? child.status === 'rejected'
+                          ? '반려됨'
+                          : child.status === 'pending'
+                            ? '확인 대기'
+                            : '제출 완료'
+                        : '미제출'}
+                    </div>
+                    <span className="text-gray-300 text-lg">→</span>
+                  </div>
+                </div>
+
+                {/* 하단: 젬 + 제출 수 */}
+                <div className="px-4 pb-4 pt-0">
+                  <div className="flex gap-3 border-t border-gray-100 pt-3">
+                    <div className="flex-1 bg-gray-50 rounded-xl p-3 text-center">
+                      <div className="text-xl font-black text-streak">
+                        💎 {child.totalGems}
+                      </div>
+                      <div className="text-[10px] text-gray-400 font-bold mt-1">보유 젬</div>
+                    </div>
+                    <div className="flex-1 bg-gray-50 rounded-xl p-3 text-center">
+                      <div className="text-xl font-black text-secondary">
+                        📸 {child.monthlySubmissions}
+                      </div>
+                      <div className="text-[10px] text-gray-400 font-bold mt-1">이번 달 제출</div>
                     </div>
                   </div>
                 </div>
-                <div
-                  className={`py-1.5 px-3 rounded-full text-xs font-bold ${
-                    child.submitted
-                      ? child.status === 'rejected'
-                        ? 'bg-red-100 text-error'
-                        : child.status === 'pending'
-                          ? 'bg-yellow-100 text-streak'
-                          : 'bg-green-100 text-primary'
-                      : 'bg-gray-100 text-gray-400'
-                  }`}
-                >
-                  {child.submitted
-                    ? child.status === 'rejected'
-                      ? '반려됨'
-                      : child.status === 'pending'
-                        ? '확인 대기'
-                        : '제출 완료'
-                    : '미제출'}
-                </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </motion.div>
@@ -259,28 +258,11 @@ export default function ParentDashboardPage() {
           </div>
         </motion.div>
 
-        {/* 안내 문구 */}
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          className="mt-5 p-3.5 bg-white/10 rounded-xl"
-        >
-          <div className="text-white text-[13px] leading-relaxed flex items-start gap-2.5">
-            <span className="text-xl">💡</span>
-            <div>
-              <strong>확인은 선택사항이에요!</strong>
-              <br />
-              제출 즉시 시스템에 자동 기록되며, 별도 확인이 필요 없어요.
-            </div>
-          </div>
-        </motion.div>
-
         {/* 사용자 전환 버튼 */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.5 }}
+          transition={{ delay: 0.4 }}
           className="mt-6 text-center"
         >
           <button

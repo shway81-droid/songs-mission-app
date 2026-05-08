@@ -2,8 +2,84 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // 허용된 자녀 ID 목록
+    function isValidChildId(childId) {
+      return childId in ['son', 'daughter'];
+    }
+
+    // 허용된 부모 ID 목록
+    function isValidParentId(parentId) {
+      return parentId in ['dad', 'mom'];
+    }
+
+    // 허용된 가족 구성원 ID
+    function isValidFamilyMember(id) {
+      return isValidChildId(id) || isValidParentId(id);
+    }
+
+    // ============================================================
+    // 미션 (assignments)
+    // ============================================================
+    match /assignments/{assignmentId} {
+      // 읽기: 누구나 가능
+      allow read: if true;
+
+      // 생성: childId가 유효해야 함
+      allow create: if isValidChildId(request.resource.data.childId)
+                    && request.resource.data.title is string
+                    && request.resource.data.title.size() > 0
+                    && request.resource.data.title.size() <= 100;
+
+      // 수정: 기존 childId 유지, 필수 필드 존재
+      allow update: if isValidChildId(resource.data.childId)
+                    && request.resource.data.childId == resource.data.childId;
+
+      // 삭제: 허용 (비활성화 대신 삭제 가능)
+      allow delete: if true;
+    }
+
+    // ============================================================
+    // 제출물 (submissions)
+    // ============================================================
+    match /submissions/{submissionId} {
+      // 읽기: 누구나 가능
+      allow read: if true;
+
+      // 생성: childId가 유효해야 함
+      allow create: if isValidChildId(request.resource.data.childId)
+                    && request.resource.data.photoUrl is string
+                    && request.resource.data.status in ['pending', 'approved', 'rejected'];
+
+      // 수정: 상태 변경만 허용 (승인/반려)
+      allow update: if request.resource.data.childId == resource.data.childId
+                    && request.resource.data.status in ['pending', 'approved', 'rejected'];
+
+      // 삭제: 허용
+      allow delete: if true;
+    }
+
+    // ============================================================
+    // 자녀 통계 (stats)
+    // ============================================================
+    match /stats/{childId} {
+      // 읽기: 누구나 가능
+      allow read: if true;
+
+      // 생성/수정: childId가 유효해야 함
+      allow create, update: if isValidChildId(childId)
+                            && request.resource.data.currentStreak is int
+                            && request.resource.data.totalGems is int;
+
+      // 삭제: 허용하지 않음
+      allow delete: if false;
+    }
+
+    // ============================================================
+    // 기타 모든 컬렉션: 접근 불가
+    // ============================================================
     match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2026, 1, 18);
+      allow read, write: if false;
     }
   }
 }

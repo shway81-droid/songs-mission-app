@@ -1,6 +1,12 @@
 import type { Metadata, Viewport } from 'next';
+import dynamic from 'next/dynamic';
 import './globals.css';
-import { Toaster } from 'react-hot-toast';
+
+// Toaster 동적 로드 (코드 분할)
+const Toaster = dynamic(
+  () => import('react-hot-toast').then((mod) => mod.Toaster),
+  { ssr: false }
+);
 
 export const metadata: Metadata = {
   title: '송가네 미션 앱',
