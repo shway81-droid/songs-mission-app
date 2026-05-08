@@ -378,7 +378,7 @@ export default function ChildDetailClient() {
 
               {/* 금액 선택 */}
               <div className="grid grid-cols-4 gap-2 mb-6">
-                {[5, 10, 20, 30, 50, 100].map((amount) => (
+                {[5, 10, 20, 30, 40, 50, 60, 100].map((amount) => (
                   <button
                     key={amount}
                     onClick={() => setGemAmount(amount)}
