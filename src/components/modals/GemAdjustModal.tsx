@@ -119,7 +119,7 @@ export default function GemAdjustModal({
             </button>
             <div className="flex-1">
               <DuoButton
-                color={isAdd ? 'primary' : 'orange'}
+                color={isAdd ? 'primary' : 'danger'}
                 size="small"
                 onClick={handleConfirm}
               >
